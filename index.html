@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Bin Checker</title>
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bin Checker">
+    <meta name="theme-color" content="#1a6b3c">
+
+    <!-- Android/desktop PWA -->
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-text-size-adjust: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #eef3ee;
+            min-height: 100vh;
+            min-height: 100dvh;
+            color: #333;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .container {
+            max-width: 540px;
+            margin: 0 auto;
+            padding: 16px 16px 24px;
+            padding-top: calc(16px + env(safe-area-inset-top));
+            padding-left: calc(16px + env(safe-area-inset-left));
+            padding-right: calc(16px + env(safe-area-inset-right));
+        }
+
+        /* ── Header ── */
+        header {
+            background: linear-gradient(135deg, #1a6b3c, #2d8f56);
+            color: white;
+            padding: 18px 20px;
+            border-radius: 18px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 16px rgba(26,107,60,0.3);
+        }
+        header h1 { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+        header .subtitle { font-size: 0.8rem; opacity: 0.7; margin-top: 2px; }
+        #today-label { font-size: 0.88rem; opacity: 0.9; margin-top: 10px; font-weight: 500; }
+
+        /* ── Cards ── */
+        .card {
+            background: white;
+            border-radius: 18px;
+            padding: 20px;
+            margin-bottom: 14px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+        }
+        .card-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 14px;
+        }
+        .card.next { background: #f7f9f7; }
+        .card.next .card-title { color: #bbb; }
+
+        /* ── Bin tiles ── */
+        .bins-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        @media (max-width: 360px) {
+            .bins-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        .bin {
+            border-radius: 14px;
+            padding: 14px 6px 12px;
+            text-align: center;
+            transition: opacity 0.2s;
+        }
+        .bin.active  { opacity: 1; }
+        .bin.inactive { opacity: 0.13; }
+
+        .bin-icon  { font-size: 2rem; display: block; margin-bottom: 6px; }
+        .bin-label { font-size: 0.72rem; font-weight: 700; line-height: 1.35; }
+
+        .bin-food      { background: #212121; color: #fff; }
+        .bin-recycling { background: #1565c0; color: #fff; }
+        .bin-garden    { background: #6d4c41; color: #fff; }
+        .bin-general   { background: #2e7d32; color: #fff; }
+
+        .week-range {
+            text-align: center;
+            color: #bbb;
+            font-size: 0.78rem;
+            margin-top: 14px;
+        }
+
+        /* ── Refresh button ── */
+        .refresh-btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background: #1a6b3c;
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 16px;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .refresh-btn:active { background: #0f4224; transform: scale(0.98); }
+
+        /* ── Out of range ── */
+        .out-of-range {
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: 16px;
+            padding: 22px;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+        .out-of-range p { color: #5d4e00; line-height: 1.6; font-size: 0.95rem; }
+        .out-of-range a { color: #1a6b3c; }
+
+        /* ── Full schedule collapsible ── */
+        details { margin-bottom: 14px; }
+        details summary {
+            list-style: none;
+            cursor: pointer;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 16px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #444;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        details summary::-webkit-details-marker { display: none; }
+        details summary::after { content: '▼'; font-size: 0.6rem; color: #ccc; }
+        details[open] summary::after { content: '▲'; }
+        details .card { margin-top: 10px; overflow-x: auto; }
+
+        /* ── Schedule table ── */
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            min-width: 340px;
+        }
+        .schedule-table th {
+            background: #f5f5f5;
+            padding: 9px 6px;
+            text-align: center;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 2px solid #eee;
+            white-space: nowrap;
+        }
+        .schedule-table th:first-child { text-align: left; padding-left: 8px; }
+        .schedule-table td {
+            padding: 9px 6px;
+            border-bottom: 1px solid #f0f0f0;
+            text-align: center;
+        }
+        .schedule-table td:first-child { text-align: left; color: #555; padding-left: 8px; white-space: nowrap; }
+        .schedule-table tr.current-row { background: #e8f5e9; }
+        .schedule-table tr.current-row td:first-child { font-weight: 700; color: #1a6b3c; }
+        .tick { color: #2e7d32; font-weight: 700; }
+        .dash { color: #ddd; }
+
+        footer {
+            text-align: center;
+            font-size: 0.72rem;
+            color: #ccc;
+            line-height: 1.9;
+            margin-top: 4px;
+        }
+        footer a { color: #1a6b3c; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <h1>🗑️ Bin Checker</h1>
+        <div class="subtitle">Bracknell Forest — Schedule 5</div>
+        <div id="today-label"></div>
+    </header>
+
+    <button class="refresh-btn" onclick="checkBins()">🔄 Check this week's bins</button>
+
+    <div id="this-week"></div>
+    <div id="next-week"></div>
+
+    <details>
+        <summary>📅 Full schedule</summary>
+        <div class="card">
+            <table class="schedule-table" id="sched-table"></table>
+        </div>
+    </details>
+
+    <footer>
+        Schedule: Feb 2026 – Nov 2026<br>
+        <a href="https://www.bracknell-forest.gov.uk/bins-and-recycling/bin-collection-schedules/schedule-5-bin-collections" target="_blank">
+            Check council website for updates ↗
+        </a>
+    </footer>
+
+</div>
+<script>
+// ── Schedule data ──────────────────────────────────────────
+const SCHEDULE = [
+  { s:"2026-02-02", e:"2026-02-08",  food:true,  rec:true,  gdn:true,  gen:true  },
+  { s:"2026-02-09", e:"2026-02-15",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-02-16", e:"2026-02-22",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-02-23", e:"2026-03-01",  food:true,  rec:false, gdn:false, gen:true  },
+  { s:"2026-03-02", e:"2026-03-08",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-03-09", e:"2026-03-15",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-03-16", e:"2026-03-22",  food:true,  rec:true,  gdn:true,  gen:true  },
+  { s:"2026-03-23", e:"2026-03-29",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-03-30", e:"2026-04-05",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-04-06", e:"2026-04-12",  food:true,  rec:false, gdn:false, gen:true  },
+  { s:"2026-04-13", e:"2026-04-19",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-04-20", e:"2026-04-26",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-04-27", e:"2026-05-03",  food:true,  rec:true,  gdn:true,  gen:true  },
+  { s:"2026-05-04", e:"2026-05-10",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-05-11", e:"2026-05-17",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-05-18", e:"2026-05-24",  food:true,  rec:false, gdn:false, gen:true  },
+  { s:"2026-05-25", e:"2026-05-31",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-06-01", e:"2026-06-07",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-06-08", e:"2026-06-14",  food:true,  rec:true,  gdn:true,  gen:true  },
+  { s:"2026-06-15", e:"2026-06-21",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-06-22", e:"2026-06-28",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-06-29", e:"2026-07-05",  food:true,  rec:false, gdn:false, gen:true  },
+  { s:"2026-07-06", e:"2026-07-12",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-07-13", e:"2026-07-19",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-07-20", e:"2026-07-26",  food:true,  rec:true,  gdn:true,  gen:true  },
+  { s:"2026-07-27", e:"2026-08-02",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-08-03", e:"2026-08-09",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-08-10", e:"2026-08-16",  food:true,  rec:false, gdn:false, gen:true  },
+  { s:"2026-08-17", e:"2026-08-23",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-08-24", e:"2026-08-30",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-08-31", e:"2026-09-06",  food:true,  rec:true,  gdn:true,  gen:true  },
+  { s:"2026-09-07", e:"2026-09-13",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-09-14", e:"2026-09-20",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-09-21", e:"2026-09-27",  food:true,  rec:false, gdn:false, gen:true  },
+  { s:"2026-09-28", e:"2026-10-04",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-10-05", e:"2026-10-11",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-10-12", e:"2026-10-18",  food:true,  rec:true,  gdn:true,  gen:true  },
+  { s:"2026-10-19", e:"2026-10-25",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-10-26", e:"2026-11-01",  food:true,  rec:true,  gdn:true,  gen:false },
+];
+
+const BINS = [
+  { key:'food', label:'Food<br>Waste',   icon:'🍃', cls:'bin-food'      },
+  { key:'rec',  label:'Recycling',       icon:'♻️', cls:'bin-recycling'  },
+  { key:'gdn',  label:'Garden<br>Waste', icon:'🌿', cls:'bin-garden'     },
+  { key:'gen',  label:'General<br>Waste',icon:'🗑️', cls:'bin-general'    },
+];
+
+// ── Helpers ────────────────────────────────────────────────
+function pd(str) {
+    const [y,m,d] = str.split('-').map(Number);
+    return new Date(y, m-1, d);
+}
+
+function weekLabel(w) {
+    const s = pd(w.s), e = pd(w.e);
+    const sm = s.getMonth(), em = e.getMonth();
+    if (sm === em) {
+        const mo = e.toLocaleDateString('en-GB', {month:'long'});
+        return `${s.getDate()}–${e.getDate()} ${mo} ${e.getFullYear()}`;
+    }
+    const sf = s.toLocaleDateString('en-GB', {day:'numeric', month:'long'});
+    const ef = e.toLocaleDateString('en-GB', {day:'numeric', month:'long'});
+    return `${sf} – ${ef} ${e.getFullYear()}`;
+}
+
+function weekLabelShort(w) {
+    const s = pd(w.s), e = pd(w.e);
+    const sm = s.getMonth(), em = e.getMonth();
+    if (sm === em) {
+        const mo = e.toLocaleDateString('en-GB', {month:'short'});
+        return `${s.getDate()}–${e.getDate()} ${mo}`;
+    }
+    const sf = s.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+    const ef = e.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+    return `${sf} – ${ef}`;
+}
+
+function findWeek(date) {
+    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    return SCHEDULE.findIndex(w => d >= pd(w.s) && d <= pd(w.e));
+}
+
+function binsHtml(w) {
+    return `<div class="bins-grid">${
+        BINS.map(b => `
+            <div class="bin ${b.cls} ${w[b.key] ? 'active' : 'inactive'}">
+                <span class="bin-icon">${b.icon}</span>
+                <span class="bin-label">${b.label}</span>
+            </div>`).join('')
+    }</div>`;
+}
+
+function buildTable(currentIdx) {
+    document.getElementById('sched-table').innerHTML =
+        `<thead><tr>
+            <th>Week</th>
+            <th>🍃</th><th>♻️</th><th>🌿</th><th>🗑️</th>
+        </tr></thead><tbody>${
+            SCHEDULE.map((w, i) => `
+                <tr ${i === currentIdx ? 'class="current-row"' : ''}>
+                    <td>${weekLabelShort(w)}${i === currentIdx ? ' ◀' : ''}</td>
+                    <td>${w.food ? '<span class="tick">✓</span>' : '<span class="dash">–</span>'}</td>
+                    <td>${w.rec  ? '<span class="tick">✓</span>' : '<span class="dash">–</span>'}</td>
+                    <td>${w.gdn  ? '<span class="tick">✓</span>' : '<span class="dash">–</span>'}</td>
+                    <td>${w.gen  ? '<span class="tick">✓</span>' : '<span class="dash">–</span>'}</td>
+                </tr>`).join('')
+        }</tbody>`;
+}
+
+// ── Main ───────────────────────────────────────────────────
+function checkBins() {
+    const today = new Date();
+
+    document.getElementById('today-label').textContent =
+        today.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+
+    const idx = findWeek(today);
+    const thisEl = document.getElementById('this-week');
+    const nextEl = document.getElementById('next-week');
+
+    if (idx === -1) {
+        thisEl.innerHTML = `
+            <div class="out-of-range">
+                <p>⚠️ No schedule data for this date.<br>
+                <a href="https://www.bracknell-forest.gov.uk/bins-and-recycling/bin-collection-schedules/schedule-5-bin-collections" target="_blank">
+                    Check the council website
+                </a> for an updated timetable.</p>
+            </div>`;
+        nextEl.innerHTML = '';
+        buildTable(-1);
+        return;
+    }
+
+    thisEl.innerHTML = `
+        <div class="card">
+            <div class="card-title">Put these bins out this week</div>
+            ${binsHtml(SCHEDULE[idx])}
+            <div class="week-range">${weekLabel(SCHEDULE[idx])}</div>
+        </div>`;
+
+    const nextDate = new Date(today);
+    nextDate.setDate(today.getDate() + 7);
+    const nextIdx = findWeek(nextDate);
+
+    nextEl.innerHTML = nextIdx === -1 ? '' : `
+        <div class="card next">
+            <div class="card-title">Next week</div>
+            ${binsHtml(SCHEDULE[nextIdx])}
+            <div class="week-range">${weekLabel(SCHEDULE[nextIdx])}</div>
+        </div>`;
+
+    buildTable(idx);
+}
+
+// ── PWA icon (generated at runtime) ───────────────────────
+function injectIcon() {
+    try {
+        const c = document.createElement('canvas');
+        c.width = c.height = 180;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#1a6b3c';
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 180, 180, 36);
+        ctx.fill();
+        ctx.font = '90px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🗑️', 90, 92);
+        const link = document.createElement('link');
+        link.rel = 'apple-touch-icon';
+        link.href = c.toDataURL('image/png');
+        document.head.appendChild(link);
+    } catch(e) {}
+}
+
+// ── Service worker ─────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+injectIcon();
+checkBins();
+</script>
+</body>
+</html>

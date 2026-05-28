@@ -1,0 +1,11 @@
+{
+  "name": "Bin Collection Checker",
+  "short_name": "Bin Checker",
+  "description": "Bracknell Forest Schedule 5 bin collection checker",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#eef3ee",
+  "theme_color": "#1a6b3c",
+  "orientation": "portrait",
+  "icons": []
+}
