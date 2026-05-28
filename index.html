@@ -101,6 +101,21 @@
             margin-top: 14px;
         }
 
+        .collection-date {
+            text-align: center;
+            margin-top: 14px;
+            font-size: 0.9rem;
+            color: #444;
+        }
+        .collection-date.bh {
+            background: #fff3e0;
+            border: 1px solid #ffb74d;
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: #e65100;
+            font-weight: 600;
+        }
+
         /* ── Refresh button ── */
         .refresh-btn {
             display: block;
@@ -233,14 +248,14 @@ const SCHEDULE = [
   { s:"2026-03-16", e:"2026-03-22",  food:true,  rec:true,  gdn:true,  gen:true  },
   { s:"2026-03-23", e:"2026-03-29",  food:true,  rec:false, gdn:false, gen:false },
   { s:"2026-03-30", e:"2026-04-05",  food:true,  rec:true,  gdn:true,  gen:false },
-  { s:"2026-04-06", e:"2026-04-12",  food:true,  rec:false, gdn:false, gen:true  },
+  { s:"2026-04-06", e:"2026-04-12",  food:true,  rec:false, gdn:false, gen:true,  bh:true },
   { s:"2026-04-13", e:"2026-04-19",  food:true,  rec:true,  gdn:true,  gen:false },
   { s:"2026-04-20", e:"2026-04-26",  food:true,  rec:false, gdn:false, gen:false },
   { s:"2026-04-27", e:"2026-05-03",  food:true,  rec:true,  gdn:true,  gen:true  },
-  { s:"2026-05-04", e:"2026-05-10",  food:true,  rec:false, gdn:false, gen:false },
+  { s:"2026-05-04", e:"2026-05-10",  food:true,  rec:false, gdn:false, gen:false, bh:true },
   { s:"2026-05-11", e:"2026-05-17",  food:true,  rec:true,  gdn:true,  gen:false },
   { s:"2026-05-18", e:"2026-05-24",  food:true,  rec:false, gdn:false, gen:true  },
-  { s:"2026-05-25", e:"2026-05-31",  food:true,  rec:true,  gdn:true,  gen:false },
+  { s:"2026-05-25", e:"2026-05-31",  food:true,  rec:true,  gdn:true,  gen:false, bh:true },
   { s:"2026-06-01", e:"2026-06-07",  food:true,  rec:false, gdn:false, gen:false },
   { s:"2026-06-08", e:"2026-06-14",  food:true,  rec:true,  gdn:true,  gen:true  },
   { s:"2026-06-15", e:"2026-06-21",  food:true,  rec:false, gdn:false, gen:false },
@@ -254,7 +269,7 @@ const SCHEDULE = [
   { s:"2026-08-10", e:"2026-08-16",  food:true,  rec:false, gdn:false, gen:true  },
   { s:"2026-08-17", e:"2026-08-23",  food:true,  rec:true,  gdn:true,  gen:false },
   { s:"2026-08-24", e:"2026-08-30",  food:true,  rec:false, gdn:false, gen:false },
-  { s:"2026-08-31", e:"2026-09-06",  food:true,  rec:true,  gdn:true,  gen:true  },
+  { s:"2026-08-31", e:"2026-09-06",  food:true,  rec:true,  gdn:true,  gen:true,  bh:true },
   { s:"2026-09-07", e:"2026-09-13",  food:true,  rec:false, gdn:false, gen:false },
   { s:"2026-09-14", e:"2026-09-20",  food:true,  rec:true,  gdn:true,  gen:false },
   { s:"2026-09-21", e:"2026-09-27",  food:true,  rec:false, gdn:false, gen:true  },
@@ -305,6 +320,19 @@ function weekLabelShort(w) {
 function findWeek(date) {
     const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     return SCHEDULE.findIndex(w => d >= pd(w.s) && d <= pd(w.e));
+}
+
+// Normal collection: Friday = weekStart(Mon) + 4. Bank holiday week: Saturday = +5.
+function collectionDate(week) {
+    const d = pd(week.s);
+    d.setDate(d.getDate() + (week.bh ? 5 : 4));
+    return d;
+}
+
+function collectionLabel(week) {
+    return collectionDate(week).toLocaleDateString('en-GB', {
+        weekday:'long', day:'numeric', month:'long'
+    });
 }
 
 function binsHtml(w) {
@@ -358,22 +386,32 @@ function checkBins() {
         return;
     }
 
+    const w = SCHEDULE[idx];
     thisEl.innerHTML = `
         <div class="card">
             <div class="card-title">Put these bins out this week</div>
-            ${binsHtml(SCHEDULE[idx])}
-            <div class="week-range">${weekLabel(SCHEDULE[idx])}</div>
+            ${binsHtml(w)}
+            <div class="collection-date${w.bh ? ' bh' : ''}">
+                ${w.bh
+                    ? '⚠️ Bank holiday week — collection moved to <strong>' + collectionLabel(w) + '</strong>'
+                    : '🗓 Collection day: <strong>' + collectionLabel(w) + '</strong>'}
+            </div>
         </div>`;
 
     const nextDate = new Date(today);
     nextDate.setDate(today.getDate() + 7);
     const nextIdx = findWeek(nextDate);
 
+    const nw = SCHEDULE[nextIdx];
     nextEl.innerHTML = nextIdx === -1 ? '' : `
         <div class="card next">
             <div class="card-title">Next week</div>
-            ${binsHtml(SCHEDULE[nextIdx])}
-            <div class="week-range">${weekLabel(SCHEDULE[nextIdx])}</div>
+            ${binsHtml(nw)}
+            <div class="collection-date${nw.bh ? ' bh' : ''}">
+                ${nw.bh
+                    ? '⚠️ Bank holiday week — collection moved to <strong>' + collectionLabel(nw) + '</strong>'
+                    : '🗓 Collection day: <strong>' + collectionLabel(nw) + '</strong>'}
+            </div>
         </div>`;
 
     buildTable(idx);
